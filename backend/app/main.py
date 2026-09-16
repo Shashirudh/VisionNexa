@@ -16,6 +16,8 @@ logger = logging.getLogger("visionNexa")
 async def lifespan(app: FastAPI):
     """Lifespan event to automatically load the PyTorch model on startup."""
     try:
+        from app.core.config import ensure_weights_available
+        ensure_weights_available()
         screening_service.load_weights()
         logger.info("Successfully loaded trained EfficientNet-B0 model into memory.")
     except Exception as exc:
@@ -31,10 +33,11 @@ app = FastAPI(
 )
 
 # CORS configuration for frontend communication
+is_wildcard = "*" in CORS_ORIGINS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=not is_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,3 +54,11 @@ def root():
         "status": "/api/status",
         "model_status": "/api/model-status",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    from app.core.config import HOST, PORT
+    logger.info(f"Starting {PROJECT_NAME} on {HOST}:{PORT}")
+    uvicorn.run("app.main:app", host=HOST, port=PORT, reload=False)
+

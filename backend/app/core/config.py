@@ -14,14 +14,49 @@ DESCRIPTION = "Explainable AI System for Diabetic Retinopathy Screening in Rural
 # Server Settings
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", 8000))
-CORS_ORIGINS = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173"
-).split(",")
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if origin.strip()
+]
 
 # Model & Explainability Settings
 MODEL_WEIGHTS_FILE = os.getenv("MODEL_WEIGHTS_FILE", "drishtiAI_efficientnet_b0.pth")
-DEFAULT_WEIGHTS_PATH = WEIGHTS_DIR / MODEL_WEIGHTS_FILE
+_custom_weights_path = os.getenv("MODEL_WEIGHTS_PATH")
+DEFAULT_WEIGHTS_PATH = (
+    Path(_custom_weights_path) if _custom_weights_path else (WEIGHTS_DIR / MODEL_WEIGHTS_FILE)
+)
+MODEL_WEIGHTS_URL = os.getenv("MODEL_WEIGHTS_URL", "").strip()
+
+
+def ensure_weights_available() -> bool:
+    """
+    Ensures model weights exist on disk at DEFAULT_WEIGHTS_PATH.
+    If the file is absent and MODEL_WEIGHTS_URL is provided, downloads it.
+    Returns True if weights are available on disk, False otherwise.
+    """
+    if DEFAULT_WEIGHTS_PATH.exists():
+        return True
+
+    if not MODEL_WEIGHTS_URL:
+        return False
+
+    import urllib.request
+    DEFAULT_WEIGHTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp_dest = DEFAULT_WEIGHTS_PATH.with_suffix(".tmp")
+    try:
+        urllib.request.urlretrieve(MODEL_WEIGHTS_URL, temp_dest)
+        if temp_dest.exists() and temp_dest.stat().st_size > 0:
+            temp_dest.replace(DEFAULT_WEIGHTS_PATH)
+            return True
+    except Exception:
+        if temp_dest.exists():
+            temp_dest.unlink()
+        raise
+    return False
 
 # Device Selection: CUDA if available, otherwise CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -34,13 +34,16 @@ def load_model(
     if not path.exists():
         raise FileNotFoundError(
             f"Trained model weights file not found at: {path}. "
-            f"Please ensure drishtiAI_efficientnet_b0.pth exists in backend/weights/."
+            f"Please ensure drishtiAI_efficientnet_b0.pth exists in backend/weights/ or supply MODEL_WEIGHTS_URL / MODEL_WEIGHTS_PATH."
         )
 
     model = build_efficientnet_b0(num_classes=NUM_CLASSES)
     
     # Load weights with map_location
-    state_dict = torch.load(path, map_location=dev)
+    try:
+        state_dict = torch.load(path, map_location=dev, weights_only=True)
+    except TypeError:
+        state_dict = torch.load(path, map_location=dev)
     model.load_state_dict(state_dict)
     
     model.to(dev)

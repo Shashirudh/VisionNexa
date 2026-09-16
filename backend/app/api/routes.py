@@ -28,6 +28,7 @@ def get_status():
 @router.get("/model-status")
 def get_model_status():
     """Confirms whether the trained EfficientNet-B0 model is loaded and ready."""
+    from app.core.config import MODEL_WEIGHTS_URL
     return {
         "model_loaded": screening_service.is_loaded,
         "model_architecture": "EfficientNet-B0",
@@ -36,7 +37,27 @@ def get_model_status():
         "classes": DR_CLASSES,
         "weights_path": str(DEFAULT_WEIGHTS_PATH),
         "weights_exist": DEFAULT_WEIGHTS_PATH.exists(),
+        "weights_url_configured": bool(MODEL_WEIGHTS_URL),
     }
+
+
+@router.post("/reload-model")
+def reload_model():
+    """Attempts to download weights (if configured) and reload the PyTorch model."""
+    from app.core.config import ensure_weights_available
+    try:
+        ensure_weights_available()
+        screening_service.load_weights()
+        return {
+            "status": "success",
+            "message": "Model reloaded successfully.",
+            "model_loaded": screening_service.is_loaded,
+        }
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reload model: {str(exc)}",
+        )
 
 
 @router.post("/screen")
